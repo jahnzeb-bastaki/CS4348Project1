@@ -44,6 +44,8 @@ void write_to_memory(int data, int addr){
   write(to_memory[1], &data, sizeof(int));
 }
 void invalid(){
+  char input = 'i';
+  write(to_memory[1], &input, sizeof(input));
   printf("Invalid Memory Access");
   exit(1);
 }
@@ -60,22 +62,24 @@ void parent(){
   int system_stack = 1999;
   int usr_stack_pointer = user_stack;
   int system_stack_pointer = system_stack;
-  bool mode = true; // usr = true; krnl = false
-
   int pc, sp, ir, ac, x, y, addr, port;
-  pc = 0; sp = system_stack_pointer;
+  bool jump;
+
+  bool mode = true; // usr = true; krnl = false
+  pc = 0; sp = usr_stack_pointer;
 
   while(true){
+    jump = false;
     ir = read_from_mem(pc);
-    //printf("1st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d\n", pc, ir, ac, x, y);
+    printf("1st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d\n", pc, ir, ac, x, y);
     switch (ir){
-    case 1:
+    case 1: // Load Value
       ac = read_from_mem(++pc);
       break;
-    case 2:
+    case 2: // Load Address
       addr = read_from_mem(++pc);
       break;
-    case 3:
+    case 3: // Load Value at Address
       addr = read_from_mem(++pc);
       if(addr > 999 && mode)
         invalid();
@@ -84,65 +88,117 @@ void parent(){
         invalid();
       ac = read_from_mem(addr);
       break;
-    case 4:
+    case 4: // Load Value at Address + X
       addr = read_from_mem(++pc) + x;
       if(addr > 999 && mode)
         invalid();
       ac = read_from_mem(addr);
       break;
-    case 5:
+    case 5: // Load Value at Address + Y
       addr = read_from_mem(++pc) + y;
       if(addr > 999 && mode)
         invalid();
       ac = read_from_mem(addr);
       break; 
-    case 6:
+    case 6: // Load from SP + X
       addr = sp + x;
       if(addr > 999 && mode)
         invalid();
       ac = read_from_mem(addr);
       break;
-    case 7:
+    case 7: // Store Address
       addr = read_from_mem(++pc);
       if(addr > 999 && mode)
         invalid();
       write_to_memory(ac, addr);
       break;
-    case 8:
+    case 8: // Get Random Number
       ac = (rand() % 100) + 1;
       break;
-    case 9:
+    case 9: // Display Either Int or Char
       port = read_from_mem(++pc);
       if(port == 1){
         printf("%d", ac);
       } else {
         printf("%c", ac);
       }
-      printf("\n");
+      //printf("\n");
       break;
-    case 10:
+    case 10: // Add X to AC
       ac += x;
       break;
-    case 11:
+    case 11: // Add Y to AC
       ac += y;
       break;
-    case 12:
+    case 12: // Subtract X from AC
       ac -= x;
       break;
-    case 13:
+    case 13: // Subtract Y from AC
       ac -= y;
       break;
-    case 14:
+    case 14: // Copy Value in AC to X
       x = ac;
       break;
-    case 15:
+    case 15: // Copy Value in X to AC
       ac = x;
       break;
-    case 16:
+    case 16: // Copy Value in AC to Y
       y = ac;
       break;
-    case 17:
+    case 17: // Copy Value in Y to AC
       ac = y;
+      break;
+    case 18: // Copy Value in AC to SP
+      sp = ac;
+      break;
+    case 19: // Copy Value in SP to AC
+      ac = sp;
+      break;
+    case 20: // Jump to Address
+      addr = read_from_mem(++pc);
+      if(addr > 999 && mode)
+        invalid();
+      pc = addr;
+      jump = true;
+      break;
+    case 21: // Jump to Address if AC == 0
+      addr = read_from_mem(++pc);
+      if(addr > 999 && mode)
+        invalid();
+      if(ac == 0){
+        pc = addr;
+        jump = true;
+      }
+      break;
+    case 22: // Jump to Address if AC != 0
+      addr = read_from_mem(++pc);
+      if(addr > 999 && mode)
+        invalid();
+      if(ac != 0){
+        pc = addr;
+        jump = true;
+      }
+      break;
+    case 23: //Push PC onto stack, jump to Address
+      addr = read_from_mem(++pc);
+      if (addr > 999 && mode)
+        invalid();
+      write_to_memory(++pc, sp--);
+      pc = addr;
+      jump = true;
+      break;
+    case 24: // Pop PC from stack, jump to PC
+      pc = read_from_mem(++sp);
+      jump = true;
+      break;
+    case 25: // X++
+      x++;
+      break;
+    case 26: // X--
+      x--;
+      break;
+    case 27: // Push AC onto Stack
+      write_to_memory(ac, sp--);
       break;
     case 50:
       end_program();
@@ -150,8 +206,9 @@ void parent(){
     default:
       break;
     }
-    pc++;
-    //printf("2st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d\n\n", pc, ir, ac, x, y);
+    if(!jump)
+      pc++;
+    printf("2st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d\n\n", pc, ir, ac, x, y);
   }
 }
 
@@ -184,6 +241,8 @@ void child(char *argv){
       int val;
       read(to_memory[0], &val, sizeof(int));
       memory[atoi(input)] = val;
+    }else if(op == 'i'){
+      exit(EXIT_FAILURE);
     }else if(op=='e'){
       //printf("Memory Process Exits\n");
       exit(EXIT_SUCCESS);
