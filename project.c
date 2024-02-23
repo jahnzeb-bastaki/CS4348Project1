@@ -16,32 +16,32 @@ int load_data(FILE *dataFile, int memory[]){
   while(!feof(dataFile)){
     char fileline[50];
     char temp_char[10];
-    int counter = 0;
     fgets(fileline, 50, dataFile);
 
+    int counter = 0;
     while(isdigit(fileline[counter])){
       temp_char[counter] = fileline[counter];
       counter++;
     }
-
+    temp_char[counter] = '\0';
     int temp_n = atoi(temp_char);
     memory[array_p++] = temp_n;
  }
  return array_p;
 }
 int read_from_mem(int data){
-  char input[5];
+  char input[6];
   int val;
-  sprintf(input, sizeof(input), "r%d", data);
+  snprintf(input, sizeof(input), "r%d", data);
   write(to_memory[1], input, sizeof(input));
-  read(to_cpu[0], val, sizeof(int));
+  read(to_cpu[0], &val, sizeof(int));
   return val;
 }
 void write_to_memory(int data, int addr){
-  char input[5];
-  sprintf(input, sizeof(input), "w%d", addr);
+  char input[6];
+  snprintf(input, sizeof(input), "w%d", addr);
   write(to_memory[1], input, sizeof(input));
-  write(to_memory[1], data, sizeof(int));
+  write(to_memory[1], &data, sizeof(int));
 }
 void invalid(){
   printf("Invalid Memory Access");
@@ -49,9 +49,10 @@ void invalid(){
 }
 void end_program(){
   char input = 'e';
-  write(to_memory[1], input, sizeof(input));
-  exit(0);
+  write(to_memory[1], &input, sizeof(input));
+  exit(EXIT_SUCCESS);
 }
+
 //CPU
 void parent(){
   srand(time(NULL));
@@ -65,8 +66,8 @@ void parent(){
   pc = 0; sp = system_stack_pointer;
 
   while(true){
-    ir = read_from_mem(++pc);
-    
+    ir = read_from_mem(pc);
+    //printf("1st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d\n", pc, ir, ac, x, y);
     switch (ir){
     case 1:
       ac = read_from_mem(++pc);
@@ -117,6 +118,7 @@ void parent(){
       } else {
         printf("%c", ac);
       }
+      printf("\n");
       break;
     case 10:
       ac += x;
@@ -148,7 +150,8 @@ void parent(){
     default:
       break;
     }
-    
+    pc++;
+    //printf("2st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d\n\n", pc, ir, ac, x, y);
   }
 }
 
@@ -164,9 +167,6 @@ void child(char *argv){
   int memory[2000];
   int len = load_data(file, memory);
   fclose(file);
-  for(int i = 0; i < len; i++){
-    printf("%d\n", memory[i]);
-  }
   
   int usr_program = 0;
   int sys_program = 1000;
@@ -174,8 +174,20 @@ void child(char *argv){
   while(true){
     char input[6];
     read(to_memory[0], input, sizeof(input));
-
     char op = input[0];
+    for(int i = 0; i < 5; i++)
+      input[i] = input[i + 1];
+    if(op == 'r'){
+      //printf("Memory:%d   Input:%d\n", memory[atoi(input)], atoi(input));
+      write(to_cpu[1], &memory[atoi(input)], sizeof(int));
+    }else if(op == 'w'){
+      int val;
+      read(to_memory[0], &val, sizeof(int));
+      memory[atoi(input)] = val;
+    }else if(op=='e'){
+      //printf("Memory Process Exits\n");
+      exit(EXIT_SUCCESS);
+    }
   }
 }
 
@@ -190,7 +202,6 @@ int main(int argc, char *argv[]) {
   
   pipe(to_cpu); pipe(to_memory);
 
-  //fork() ? parent() : child(argv[1]); 
-  child(argv[1]);
+  fork() ? parent() : child(argv[1]); 
 }
 
