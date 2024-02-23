@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <time.h>
 
+// 0 is reading, 1 is writing
 int to_cpu[2], to_memory[2];
 
 //Helper Functions
@@ -50,8 +51,23 @@ void child(char *argv){
   int usr_program = 0;
   int sys_program = 1000;
 
-  
-
+  char input[10];
+  while(read(to_memory[0], input, sizeof(input))){
+    char op = input[0];
+    for(int i = 0; i < sizeof(input) - 1; i++)
+      input[i] = input[i+1];
+      
+    if(op == "r"){
+      write(to_cpu[1], memory[atoi(input)], sizeof(int));
+    }else if(op == "w"){
+      int val;
+      read(to_memory[0], val, sizeof(int));
+      memory[atoi(input)] = val;
+    }else{
+      printf("Memory Process Exits\n");
+      exit(1);
+    }
+  }
 }
 
 
