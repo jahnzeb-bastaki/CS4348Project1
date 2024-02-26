@@ -18,14 +18,30 @@ int load_data(FILE *dataFile, int memory[]){
     char temp_char[10];
     fgets(fileline, 50, dataFile);
 
+    if(fileline[0] == '\n')
+      continue;
+    
+    int memFlag = 0;
+    if('.' == fileline[0]){
+      memFlag = 1;
+    }
+
     int counter = 0;
-    while(isdigit(fileline[counter])){
-      temp_char[counter] = fileline[counter];
+    while(isdigit(fileline[counter+memFlag])){
+      temp_char[counter] = fileline[counter+memFlag];
       counter++;
     }
+
     temp_char[counter] = '\0';
     int temp_n = atoi(temp_char);
-    memory[array_p++] = temp_n;
+    if(memFlag){
+      array_p = temp_n;
+      //printf(" -- Memory pointer now at: %d\n", array_p);
+    }else{
+      memory[array_p] = temp_n; 
+      //printf("Memory Address:%d Value:%d\n", array_p, memory[array_p]);
+      array_p++;
+    }
  }
  return array_p;
 }
@@ -213,7 +229,6 @@ void parent(){
 }
 
 void child(char *argv){
-  //printf("PID: %d", getpid);
   FILE *file = fopen(argv, "r");
   // File not found
   if(!file){
@@ -224,6 +239,7 @@ void child(char *argv){
   int memory[2000];
   int len = load_data(file, memory);
   fclose(file);
+  
   
   int usr_program = 0;
   int sys_program = 1000;
