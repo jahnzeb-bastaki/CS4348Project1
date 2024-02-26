@@ -71,7 +71,7 @@ void parent(){
   while(true){
     jump = false;
     ir = read_from_mem(pc);
-    printf("1st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d\n", pc, ir, ac, x, y);
+    //printf("1st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d\n", pc, ir, ac, x, y);
     switch (ir){
     case 1: // Load Value
       ac = read_from_mem(++pc);
@@ -208,7 +208,7 @@ void parent(){
     }
     if(!jump)
       pc++;
-    printf("2st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d\n\n", pc, ir, ac, x, y);
+    //printf("2st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d\n\n", pc, ir, ac, x, y);
   }
 }
 
