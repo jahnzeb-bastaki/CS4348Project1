@@ -59,7 +59,7 @@ void write_to_memory(int data, int addr){
   write(to_memory[1], input, sizeof(input));
   write(to_memory[1], &data, sizeof(int));
 }
-void invalid(){
+void invalid_mem_access(){
   char input = 'i';
   write(to_memory[1], &input, sizeof(input));
   printf("Invalid Memory Access");
@@ -70,7 +70,12 @@ void end_program(){
   write(to_memory[1], &input, sizeof(input));
   exit(EXIT_SUCCESS);
 }
-
+void invalid_ir(int val){
+  char input[6];
+  snprintf(input, sizeof(input), "i%d", val);
+  write(to_memory[1], &input, sizeof(input));
+  EXIT_FAILURE;
+}
 //CPU
 void parent(){
   srand(time(NULL));
@@ -98,34 +103,34 @@ void parent(){
     case 3: // Load Value at Address
       addr = read_from_mem(++pc);
       if(addr > 999 && mode)
-        invalid();
+        invalid_mem_access();
       addr = read_from_mem(addr);
       if(addr > 999 && mode)
-        invalid();
+        invalid_mem_access();
       ac = read_from_mem(addr);
       break;
     case 4: // Load Value at Address + X
       addr = read_from_mem(++pc) + x;
       if(addr > 999 && mode)
-        invalid();
+        invalid_mem_access();
       ac = read_from_mem(addr);
       break;
     case 5: // Load Value at Address + Y
       addr = read_from_mem(++pc) + y;
       if(addr > 999 && mode)
-        invalid();
+        invalid_mem_access();
       ac = read_from_mem(addr);
       break; 
     case 6: // Load from SP + X
       addr = sp + x;
       if(addr > 999 && mode)
-        invalid();
+        invalid_mem_access();
       ac = read_from_mem(addr);
       break;
     case 7: // Store Address
       addr = read_from_mem(++pc);
       if(addr > 999 && mode)
-        invalid();
+        invalid_mem_access();
       write_to_memory(ac, addr);
       break;
     case 8: // Get Random Number
@@ -173,14 +178,14 @@ void parent(){
     case 20: // Jump to Address
       addr = read_from_mem(++pc);
       if(addr > 999 && mode)
-        invalid();
+        invalid_mem_access();
       pc = addr;
       jump = true;
       break;
     case 21: // Jump to Address if AC == 0
       addr = read_from_mem(++pc);
       if(addr > 999 && mode)
-        invalid();
+        invalid_mem_access();
       if(ac == 0){
         pc = addr;
         jump = true;
@@ -189,7 +194,7 @@ void parent(){
     case 22: // Jump to Address if AC != 0
       addr = read_from_mem(++pc);
       if(addr > 999 && mode)
-        invalid();
+        invalid_mem_access();
       if(ac != 0){
         pc = addr;
         jump = true;
@@ -198,7 +203,7 @@ void parent(){
     case 23: //Push PC onto stack, jump to Address
       addr = read_from_mem(++pc);
       if (addr > 999 && mode)
-        invalid();
+        invalid_mem_access();
       write_to_memory(++pc, sp--);
       pc = addr;
       jump = true;
@@ -217,7 +222,7 @@ void parent(){
       write_to_memory(ac, sp--);
       break;
     case 50:
-      end_program();
+      invalid_ir(ir);
       break;
     default:
       break;
@@ -260,8 +265,9 @@ void child(char *argv){
     }else if(op == 'i'){
       exit(EXIT_FAILURE);
     }else if(op=='e'){
-      //printf("Memory Process Exits\n");
       exit(EXIT_SUCCESS);
+    }else if(op == 'x'){
+      printf("Invalid IR Value - IR Val:%d", atoi(input));
     }
   }
 }
