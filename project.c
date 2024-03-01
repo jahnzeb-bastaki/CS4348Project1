@@ -76,18 +76,23 @@ void invalid_ir(int val){
   write(to_memory[1], &input, sizeof(input));
   EXIT_FAILURE;
 }
+
 //CPU
-void parent(){
+void parent(int t){
   srand(time(NULL));
   int user_stack = 999;
   int system_stack = 1999;
-  int usr_stack_pointer = user_stack;
+  //int usr_stack_pointer = user_stack;
   int system_stack_pointer = system_stack;
   int pc, sp, ir, ac, x, y, addr, port;
   bool jump;
+  bool interrupt;
+  bool mode;
 
-  bool mode = true; // usr = true; krnl = false
+  mode = true; // usr
+  interrupt = false;
   pc = 0; sp = usr_stack_pointer;
+  int timer = t;
 
   while(true){
     jump = false;
@@ -102,34 +107,34 @@ void parent(){
       break;
     case 3: // Load Value at Address
       addr = read_from_mem(++pc);
-      if(addr > 999 && mode)
+      if(addr > user_stack && mode)
         invalid_mem_access();
       addr = read_from_mem(addr);
-      if(addr > 999 && mode)
+      if(addr > user_stack && mode)
         invalid_mem_access();
       ac = read_from_mem(addr);
       break;
     case 4: // Load Value at Address + X
       addr = read_from_mem(++pc) + x;
-      if(addr > 999 && mode)
+      if(addr > user_stack && mode)
         invalid_mem_access();
       ac = read_from_mem(addr);
       break;
     case 5: // Load Value at Address + Y
       addr = read_from_mem(++pc) + y;
-      if(addr > 999 && mode)
+      if(addr > user_stack && mode)
         invalid_mem_access();
       ac = read_from_mem(addr);
       break; 
     case 6: // Load from SP + X
       addr = sp + x;
-      if(addr > 999 && mode)
+      if(addr > user_stack && mode)
         invalid_mem_access();
       ac = read_from_mem(addr);
       break;
     case 7: // Store Address
       addr = read_from_mem(++pc);
-      if(addr > 999 && mode)
+      if(addr > user_stack && mode)
         invalid_mem_access();
       write_to_memory(ac, addr);
       break;
@@ -177,14 +182,14 @@ void parent(){
       break;
     case 20: // Jump to Address
       addr = read_from_mem(++pc);
-      if(addr > 999 && mode)
+      if(addr > user_stack && mode)
         invalid_mem_access();
       pc = addr;
       jump = true;
       break;
     case 21: // Jump to Address if AC == 0
       addr = read_from_mem(++pc);
-      if(addr > 999 && mode)
+      if(addr > user_stack && mode)
         invalid_mem_access();
       if(ac == 0){
         pc = addr;
@@ -193,7 +198,7 @@ void parent(){
       break;
     case 22: // Jump to Address if AC != 0
       addr = read_from_mem(++pc);
-      if(addr > 999 && mode)
+      if(addr > user_stack && mode)
         invalid_mem_access();
       if(ac != 0){
         pc = addr;
@@ -202,7 +207,7 @@ void parent(){
       break;
     case 23: //Push PC onto stack, jump to Address
       addr = read_from_mem(++pc);
-      if (addr > 999 && mode)
+      if (addr > user_stack && mode)
         invalid_mem_access();
       write_to_memory(++pc, sp--);
       pc = addr;
@@ -221,6 +226,22 @@ void parent(){
     case 27: // Push AC onto Stack
       write_to_memory(ac, sp--);
       break;
+    case 28:
+      ac = read_from_mem(++sp);
+      break;
+    case 29:
+      mode = false; // kernel mode
+      write_to_memory(sp, system_stack_pointer--); //stores current stack pointer
+      sp = system_stack_pointer;
+
+      write_to_memory(++pc, sp--); //stores the pc in mem stack
+      pc = 1500;
+      jump = true;
+
+      write_to_memory(ac, sp--); // stores the current ac
+      // Save X and Y registers
+      write_to_memory(x, sp--);
+      write_to_memory(y, sp--);
     case 50:
       invalid_ir(ir);
       break;
@@ -283,6 +304,6 @@ int main(int argc, char *argv[]) {
   
   pipe(to_cpu); pipe(to_memory);
 
-  fork() ? parent() : child(argv[1]); 
+  fork() ? parent(argv[2]) : child(argv[1]); 
 }
 
