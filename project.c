@@ -17,10 +17,11 @@ int load_data(FILE *dataFile, int memory[]){
     char fileline[50];
     char temp_char[10];
     fgets(fileline, 50, dataFile);
-
-    if(fileline[0] == '\n')
+    //printf("%s", fileline);
+    if(fileline[0] == '\n' || fileline[0] == '\t' || fileline[0] == ' ')
       continue;
     
+
     int memFlag = 0;
     if('.' == fileline[0]){
       memFlag = 1;
@@ -88,16 +89,23 @@ void parent(int t){
   bool jump;
   bool interrupt;
   bool mode;
+  int timer, timer_count;
 
   mode = true; // usr
   interrupt = false;
-  pc = 0; sp = usr_stack_pointer;
-  int timer = t;
+  pc = 0;
+  sp = user_stack;
+  timer_count = 0;
 
   while(true){
+    
+
+    
+
+    timer_count++;
     jump = false;
     ir = read_from_mem(pc);
-    //printf("1st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d\n", pc, ir, ac, x, y);
+    //printf("1st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d Timer_Count:%d\n", pc, ir, ac, x, y, timer_count);
     switch (ir){
     case 1: // Load Value
       ac = read_from_mem(++pc);
@@ -127,7 +135,7 @@ void parent(int t){
       ac = read_from_mem(addr);
       break; 
     case 6: // Load from SP + X
-      addr = sp + x;
+      addr = sp + x + 1; // because stack pointer is pointing to an empty slot
       if(addr > user_stack && mode)
         invalid_mem_access();
       ac = read_from_mem(addr);
@@ -229,23 +237,11 @@ void parent(int t){
     case 28:
       ac = read_from_mem(++sp);
       break;
-    case 29:
-      mode = false; // kernel mode
-      write_to_memory(sp, system_stack_pointer--); //stores current stack pointer
-      sp = system_stack_pointer;
-
-      write_to_memory(++pc, sp--); //stores the pc in mem stack
-      pc = 1500;
-      jump = true;
-
-      write_to_memory(ac, sp--); // stores the current ac
-      // Save X and Y registers
-      write_to_memory(x, sp--);
-      write_to_memory(y, sp--);
     case 50:
-      invalid_ir(ir);
+      end_program();
       break;
     default:
+      invalid_ir(ir);
       break;
     }
     if(!jump)
@@ -265,7 +261,8 @@ void child(char *argv){
   int memory[2000];
   int len = load_data(file, memory);
   fclose(file);
-  
+  //for(int i = 0; i < 50; i++)
+  //  printf("I:%d Value at Address:%d\n", i, memory[i]);
   
   int usr_program = 0;
   int sys_program = 1000;
@@ -304,6 +301,6 @@ int main(int argc, char *argv[]) {
   
   pipe(to_cpu); pipe(to_memory);
 
-  fork() ? parent(argv[2]) : child(argv[1]); 
+  fork() ? parent(atoi(argv[2])) : child(argv[1]); 
 }
 
