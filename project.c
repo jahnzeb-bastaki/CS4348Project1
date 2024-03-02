@@ -10,6 +10,11 @@
 // 0 is reading, 1 is writing
 int to_cpu[2], to_memory[2];
 
+struct read_write{
+  char op;
+  int address;
+  int data;
+};
 //Helper Functions
 int load_data(FILE *dataFile, int memory[]){
   int array_p = 0;
@@ -46,35 +51,47 @@ int load_data(FILE *dataFile, int memory[]){
  }
  return array_p;
 }
-int read_from_mem(int data){
-  char input[6];
+int read_from_mem(int addr){
   int val;
-  snprintf(input, sizeof(input), "r%d", data);
-  write(to_memory[1], input, sizeof(input));
+  struct read_write r1;
+  r1.address = addr;
+  r1.op = 'r';
+  write(to_memory[1], &r1, sizeof(r1));
   read(to_cpu[0], &val, sizeof(int));
   return val;
 }
 void write_to_memory(int data, int addr){
-  char input[6];
-  snprintf(input, sizeof(input), "w%d", addr);
-  write(to_memory[1], input, sizeof(input));
-  write(to_memory[1], &data, sizeof(int));
+  //char input[6];
+  //snprintf(input, sizeof(input), "w%d", addr);
+  struct read_write w1;
+  w1.op = 'w';
+  w1.address = addr;
+  w1.data = data;
+  //write(to_memory[1], input, sizeof(input));
+  write(to_memory[1], &w1, sizeof(w1));
 }
-void invalid_mem_access(){
-  char input = 'i';
-  write(to_memory[1], &input, sizeof(input));
-  printf("Invalid Memory Access");
+void invalid_mem_access(bool mode){
+  struct read_write invalid;
+  invalid.op = 'i';
+  if(mode){
+    printf("Memory Violation: accessing system address 1000 in user mode\n");
+  } else {
+    printf("Memory Violation: accessing system address 999 in system mode\n");
+  }
+  write(to_memory[1], &invalid, sizeof(invalid));
   exit(1);
 }
 void end_program(){
-  char input = 'e';
-  write(to_memory[1], &input, sizeof(input));
+  struct read_write end;
+  end.op = 'e';
+  write(to_memory[1], &end, sizeof(end));
   exit(EXIT_SUCCESS);
 }
 void invalid_ir(int val){
-  char input[6];
-  snprintf(input, sizeof(input), "i%d", val);
-  write(to_memory[1], &input, sizeof(input));
+  struct read_write invalid;
+  invalid.op = 'i';
+  invalid.data = val;
+  write(to_memory[1], &invalid, sizeof(invalid));
   EXIT_FAILURE;
 }
 
@@ -83,26 +100,44 @@ void parent(int t){
   srand(time(NULL));
   int user_stack = 999;
   int system_stack = 1999;
-  //int usr_stack_pointer = user_stack;
-  int system_stack_pointer = system_stack;
-  int pc, sp, ir, ac, x, y, addr, port;
+  int pc, sp, ir, ac, x, y, addr, v0;
   bool jump;
   bool interrupt;
   bool mode;
-  int timer, timer_count;
+  int timer, timer_count, intrpt_check;
 
   mode = true; // usr
-  interrupt = false;
+  interrupt = false; // no interrupts
   pc = 0;
   sp = user_stack;
   timer_count = 0;
+  timer = t;
 
+  int intrpt_pending = 0;
   while(true){
-    
 
-    
+    if(timer != 0 && timer_count != 0){ // was giving me arithmeitc error
+      intrpt_check = timer_count % timer;
+      if(intrpt_check == 0 && interrupt)  // intrpt might happen while there is an intrpt happening, need to handle after interupt
+        intrpt_pending++;
 
-    timer_count++;
+      // if there is not an interrupt happening, that means we need to check whether
+      // there is either an instruction interrupt or if there are pending interrupts
+      if(!interrupt && (intrpt_check == 0 || intrpt_pending)){
+        mode = false; //kernel mode
+        interrupt = true; //let system know interrupt is happening
+        
+        write_to_memory(sp, system_stack--);
+        sp = system_stack;
+
+        write_to_memory(pc, sp--);
+        pc = 1000;
+
+        if(intrpt_pending > 0) //dont want to 
+          intrpt_pending--;
+      }
+    }
+    
     jump = false;
     ir = read_from_mem(pc);
     //printf("1st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d Timer_Count:%d\n", pc, ir, ac, x, y, timer_count);
@@ -112,46 +147,61 @@ void parent(int t){
       break;
     case 2: // Load Address
       addr = read_from_mem(++pc);
+      if(addr > user_stack && mode)
+        invalid_mem_access(mode);
+      if(addr < user_stack + 1 && !mode)
+        invalid_mem_access(mode);
+      ac = read_from_mem(addr);
       break;
     case 3: // Load Value at Address
       addr = read_from_mem(++pc);
       if(addr > user_stack && mode)
-        invalid_mem_access();
+        invalid_mem_access(mode);
+      if(addr < user_stack + 1 && !mode)
+        invalid_mem_access(mode);
       addr = read_from_mem(addr);
       if(addr > user_stack && mode)
-        invalid_mem_access();
+        invalid_mem_access(mode);
       ac = read_from_mem(addr);
       break;
     case 4: // Load Value at Address + X
       addr = read_from_mem(++pc) + x;
       if(addr > user_stack && mode)
-        invalid_mem_access();
+        invalid_mem_access(mode);
+      if(addr < user_stack + 1 && !mode)
+        invalid_mem_access(mode);
       ac = read_from_mem(addr);
       break;
     case 5: // Load Value at Address + Y
       addr = read_from_mem(++pc) + y;
       if(addr > user_stack && mode)
-        invalid_mem_access();
+        invalid_mem_access(mode);
+      if(addr < user_stack + 1 && !mode)
+        invalid_mem_access(mode);
       ac = read_from_mem(addr);
       break; 
     case 6: // Load from SP + X
       addr = sp + x + 1; // because stack pointer is pointing to an empty slot
       if(addr > user_stack && mode)
-        invalid_mem_access();
+        invalid_mem_access(mode);
+      if(addr < user_stack + 1 && !mode)
+        invalid_mem_access(mode);
       ac = read_from_mem(addr);
       break;
     case 7: // Store Address
       addr = read_from_mem(++pc);
       if(addr > user_stack && mode)
-        invalid_mem_access();
+        invalid_mem_access(mode);
+      if(addr < user_stack + 1 && !mode)
+        invalid_mem_access(mode);
       write_to_memory(ac, addr);
       break;
     case 8: // Get Random Number
       ac = (rand() % 100) + 1;
       break;
     case 9: // Display Either Int or Char
-      port = read_from_mem(++pc);
-      if(port == 1){
+      v0 = read_from_mem(++pc);
+      if(v0 == 1){
         printf("%d", ac);
       } else {
         printf("%c", ac);
@@ -191,14 +241,18 @@ void parent(int t){
     case 20: // Jump to Address
       addr = read_from_mem(++pc);
       if(addr > user_stack && mode)
-        invalid_mem_access();
+        invalid_mem_access(mode);
+      if(addr < user_stack + 1 && !mode)
+        invalid_mem_access(mode);
       pc = addr;
       jump = true;
       break;
     case 21: // Jump to Address if AC == 0
       addr = read_from_mem(++pc);
       if(addr > user_stack && mode)
-        invalid_mem_access();
+        invalid_mem_access(mode);
+      if(addr < user_stack + 1 && !mode)
+        invalid_mem_access(mode);
       if(ac == 0){
         pc = addr;
         jump = true;
@@ -207,7 +261,9 @@ void parent(int t){
     case 22: // Jump to Address if AC != 0
       addr = read_from_mem(++pc);
       if(addr > user_stack && mode)
-        invalid_mem_access();
+        invalid_mem_access(mode);
+      if(addr < user_stack + 1 && !mode)
+        invalid_mem_access(mode);
       if(ac != 0){
         pc = addr;
         jump = true;
@@ -216,7 +272,9 @@ void parent(int t){
     case 23: //Push PC onto stack, jump to Address
       addr = read_from_mem(++pc);
       if (addr > user_stack && mode)
-        invalid_mem_access();
+        invalid_mem_access(mode);
+      if(addr < user_stack + 1 && !mode)
+        invalid_mem_access(mode);
       write_to_memory(++pc, sp--);
       pc = addr;
       jump = true;
@@ -238,33 +296,27 @@ void parent(int t){
       ac = read_from_mem(++sp);
       break;
     case 29:
-      if(interrupt)
+      if(interrupt) // to make sure a system call not happening during a timer interrupt
         break;
       mode = false;
       interrupt = true;
-
-      write_to_memory(sp, system_stack_pointer--);
-      sp = system_stack_pointer;
-
-      write_to_memory(pc, sp--);
-      pc = 1500;
-
-      // Saving extra registers to stack
-      write_to_memory(ac, sp--);
-      write_to_memory(x, sp--);
-      write_to_memory(y, sp--);
       jump = true;
+
+      write_to_memory(sp, system_stack--);
+      sp = system_stack;
+
+      write_to_memory(++pc, sp--);
+      pc = 1500;
       break;
     case 30:
-      y = read_from_mem(++sp);
-      x = read_from_mem(++sp);
-      ac = read_from_mem(++sp);
       pc = read_from_mem(++sp);
-      sp = read_from_mem(++sp);
+      system_stack = ++sp;
+      sp = read_from_mem(sp);
 
-      system_stack_pointer = sp;
       mode = true; //user mode
       interrupt = false;
+      jump = true;
+      break;
     case 50:
       end_program();
       break;
@@ -275,6 +327,7 @@ void parent(int t){
     if(!jump)
       pc++;
     //printf("2st Statement - PC:%d  IR:%d  AC:%d  X:%d  Y:%d\n\n", pc, ir, ac, x, y);
+    timer_count++;
   }
 }
 
@@ -289,31 +342,24 @@ void child(char *argv){
   int memory[2000];
   int len = load_data(file, memory);
   fclose(file);
-  //for(int i = 0; i < 50; i++)
-  //  printf("I:%d Value at Address:%d\n", i, memory[i]);
-  
-  int usr_program = 0;
-  int sys_program = 1000;
-  
+
   while(true){
-    char input[6];
-    read(to_memory[0], input, sizeof(input));
-    char op = input[0];
-    for(int i = 0; i < 5; i++)
-      input[i] = input[i + 1];
+    struct read_write command;
+    read(to_memory[0], &command, sizeof(command));
+    char op = command.op;
+    
     if(op == 'r'){
-      //printf("Memory:%d   Input:%d\n", memory[atoi(input)], atoi(input));
-      write(to_cpu[1], &memory[atoi(input)], sizeof(int));
+      write(to_cpu[1], &memory[command.address], sizeof(int));
     }else if(op == 'w'){
-      int val;
-      read(to_memory[0], &val, sizeof(int));
-      memory[atoi(input)] = val;
+      int val = command.data;
+      memory[command.address] = val;
     }else if(op == 'i'){
       exit(EXIT_FAILURE);
     }else if(op=='e'){
       exit(EXIT_SUCCESS);
     }else if(op == 'x'){
-      printf("Invalid IR Value - IR Val:%d", atoi(input));
+      printf("Invalid IR Value - IR Val:%d", command.data);
+      exit(EXIT_FAILURE);
     }
   }
 }
@@ -326,6 +372,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "ERROR - Usage: %s <filename> <interrupt>\n", argv[0]);
     exit(1);
   }
+
   
   pipe(to_cpu); pipe(to_memory);
 
