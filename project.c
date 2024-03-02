@@ -237,6 +237,34 @@ void parent(int t){
     case 28:
       ac = read_from_mem(++sp);
       break;
+    case 29:
+      if(interrupt)
+        break;
+      mode = false;
+      interrupt = true;
+
+      write_to_memory(sp, system_stack_pointer--);
+      sp = system_stack_pointer;
+
+      write_to_memory(pc, sp--);
+      pc = 1500;
+
+      // Saving extra registers to stack
+      write_to_memory(ac, sp--);
+      write_to_memory(x, sp--);
+      write_to_memory(y, sp--);
+      jump = true;
+      break;
+    case 30:
+      y = read_from_mem(++sp);
+      x = read_from_mem(++sp);
+      ac = read_from_mem(++sp);
+      pc = read_from_mem(++sp);
+      sp = read_from_mem(++sp);
+
+      system_stack_pointer = sp;
+      mode = true; //user mode
+      interrupt = false;
     case 50:
       end_program();
       break;
