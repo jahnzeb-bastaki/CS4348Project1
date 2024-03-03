@@ -1,0 +1,107 @@
+1   // Load 0
+0
+14  // CopyToX
+4   // LoadIdxX 
+41  // (factorial index start) -------- change
+27  // Push Value on to stack
+21  // JumpIfEqual
+40 // (end of program) ---------- change
+23  // System Call to handle arthmetic
+500
+16  // Copy To Y
+28  // Pop off stack
+9   // Port for integer
+1
+1   // Load 33 - !
+33
+9   // Port 2
+2
+1   // Load 32 - space
+32
+9   // Port 2
+2
+1   // Load 45 - "-"
+45
+9   // Port 2
+2
+1   // Load 32 - space
+32
+9   // port 2
+2
+17  // Copy Y to AC
+9   // Load Port for Integer
+1
+1   // Load 10
+10
+9   // Load Port for Character  
+2
+25  // Increment X
+20  // Jump to 3 ---------------- change
+3
+50  // End Program
+
+1 // ----------- start
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+0 // ------------- end
+
+
+
+.500
+16  // Copy AC (the num) to Y ---- Y has the num
+15  // Copy X to AC
+27  // Push
+2   // Load Value at Address
+700
+13  // AC = AC - Y
+22   // JumpIfEqual
+514
+1   // Load 1
+1
+7
+700
+20
+535
+17  // AC = Y (index 3)
+14  // X = AC (X has the iterator num)
+26  // DecX
+2
+700  // AC = Mem[1700]
+7
+701
+15  // CopyX to AC -- index2
+21  // JumpIfEqual
+535
+2
+701
+16  // Copy To Y
+2     // Load Variable
+700  // AC has variable value
+11    // Sum = AC + Y = AC + AC
+26  // DecX
+7
+700
+20  // Jump
+521
+28  -- index1
+14
+2
+700
+16
+24
+
+.700
+1
+0
+
+.1000
+30
