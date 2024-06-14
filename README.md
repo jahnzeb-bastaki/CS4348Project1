@@ -1,2 +1,5 @@
-# CS4348Project1
-CS 4348 Project1
+# CS4348Project1 - Operating Systems
+
+## Project 1: Exploring Multiple Processes and IPC
+
+### Overview:
